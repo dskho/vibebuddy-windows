@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,6 +16,56 @@ func testDaemon(t *testing.T) *Daemon {
 		t.Fatalf("New: %v", err)
 	}
 	return d
+}
+
+// TestWireRequiredFields guards the fields the stock iPhone app decodes as
+// non-optional: a missing `project`, `tool` or `commandPreview` fails the
+// whole Snapshot decode on the phone and the pairing check times out.
+func TestWireRequiredFields(t *testing.T) {
+	d := testDaemon(t)
+
+	// Session without any cwd/project context (hook event carried none).
+	sess := d.store.Upsert(AgentClaudeCode, "sess-wire", "", "")
+	if sess.Project == "" {
+		t.Fatal("Project must never be empty")
+	}
+
+	// Approval card from a minimal payload (no tool/command fields).
+	card := buildApprovalCard(map[string]any{})
+	if card.Tool == "" || card.CommandPreview == "" {
+		t.Fatalf("approval card missing required fields: %+v", card)
+	}
+
+	snap := d.store.Snapshot("test-source")
+	raw, err := json.Marshal(ServerEvent{Snapshot: &snap})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var evt map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &evt); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var decoded struct {
+		Sessions []map[string]any `json:"sessions"`
+	}
+	snapRaw, ok := evt["snapshot"]
+	if !ok {
+		t.Fatal("first frame must be {\"snapshot\": ...}")
+	}
+	if err := json.Unmarshal(snapRaw, &decoded); err != nil {
+		t.Fatalf("unmarshal snapshot: %v", err)
+	}
+	for _, s := range decoded.Sessions {
+		for _, f := range []string{"id", "agent", "project", "status", "hasUnreadCompletion"} {
+			v, ok := s[f]
+			if !ok || v == nil {
+				t.Fatalf("session missing required field %q: %v", f, s)
+			}
+		}
+		if p, _ := s["project"].(string); p == "" {
+			t.Fatalf("session project must be non-empty: %v", s)
+		}
+	}
 }
 
 func TestAdvertiseHostOverride(t *testing.T) {
