@@ -18,8 +18,7 @@ func (d *Daemon) Handler() http.Handler {
 
 	// Public: health probe (the only unauthenticated phone endpoint).
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("ok"))
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "version": Version})
 	})
 
 	// Local dashboard (HTML carries no secrets).
@@ -318,7 +317,7 @@ func (d *Daemon) Serve(ctx context.Context) error {
 		defer cancel()
 		_ = srv.Shutdown(shutCtx)
 	}()
-	log.Printf("vibebuddy-windows listening on :%d (support dir %s, LAN %s)", d.cfg.Port, d.cfg.SupportDir, d.lanIP)
+	log.Printf("vibebuddy-windows v%s listening on :%d (support dir %s, LAN %s)", Version, d.cfg.Port, d.cfg.SupportDir, d.lanIP)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
