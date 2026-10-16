@@ -17,6 +17,20 @@ func testDaemon(t *testing.T) *Daemon {
 	return d
 }
 
+func TestAdvertiseHostOverride(t *testing.T) {
+	cfg := Config{Port: 19877, SupportDir: t.TempDir(), AdvertiseHost: "100.64.0.1"}
+	d, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if d.lanIP != "100.64.0.1" {
+		t.Fatalf("lanIP = %q, want override 100.64.0.1", d.lanIP)
+	}
+	if !strings.Contains(string(d.PairingPayloadJSON()), "100.64.0.1") {
+		t.Fatalf("pairing payload does not contain override IP: %s", d.PairingPayloadJSON())
+	}
+}
+
 func TestHookLifecycle(t *testing.T) {
 	d := testDaemon(t)
 	hook := func(agent, payload string) {

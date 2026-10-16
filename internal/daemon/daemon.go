@@ -22,6 +22,10 @@ type Config struct {
 	Port       int
 	SupportDir string // %APPDATA%\vibebuddy (override with VIBEBUDDY_SUPPORT_DIR)
 	HooksDir   string // where the .ps1 hook scripts live (for the dashboard)
+	// AdvertiseHost overrides the IP embedded in the pairing QR code and the
+	// /device response. Set it to the PC's Tailscale IP (or pass
+	// VIBEBUDDY_HOST) to pair the iPhone over Tailscale instead of the LAN.
+	AdvertiseHost string
 }
 
 // Daemon is the running companion: HTTP server + session state.
@@ -52,7 +56,7 @@ func DefaultConfig() Config {
 			dir = filepath.Join(os.TempDir(), "vibebuddy")
 		}
 	}
-	return Config{Port: port, SupportDir: dir}
+	return Config{Port: port, SupportDir: dir, AdvertiseHost: os.Getenv("VIBEBUDDY_HOST")}
 }
 
 // New creates a Daemon, loading (or generating) the bearer token and the
@@ -76,7 +80,10 @@ func New(cfg Config) (*Daemon, error) {
 	}
 	d.sourceID = sourceID
 
-	d.lanIP = detectLANIP()
+	d.lanIP = cfg.AdvertiseHost
+	if d.lanIP == "" {
+		d.lanIP = detectLANIP()
+	}
 	return d, nil
 }
 

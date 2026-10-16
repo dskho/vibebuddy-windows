@@ -21,6 +21,7 @@ func main() {
 	cfg := daemon.DefaultConfig()
 	flag.IntVar(&cfg.Port, "port", cfg.Port, "listen port (or VIBEBUDDY_PORT)")
 	flag.StringVar(&cfg.SupportDir, "support-dir", cfg.SupportDir, "state directory (or VIBEBUDDY_SUPPORT_DIR)")
+	flag.StringVar(&cfg.AdvertiseHost, "advertise-host", cfg.AdvertiseHost, "IP embedded in pairing QR (or VIBEBUDDY_HOST, e.g. Tailscale IP)")
 	flag.Parse()
 
 	d, err := daemon.New(cfg)

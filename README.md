@@ -52,6 +52,21 @@ hooks/*.ps1 ──POST http://127.0.0.1:9876/hook?agent=<src>──▶ vibebuddy
 | `web/` | 本地仪表盘（任务收件箱、配对二维码） |
 | `PROTOCOL.md` | iPhone ↔ 电脑线协议文档 |
 
+## 经 Tailscale 远程配对
+
+PC 和 iPhone 不在同一局域网时，可以用 Tailscale 组网（守护进程监听所有网卡，Tailscale 接口也在内）：
+
+1. PC 和 iPhone 都装 Tailscale，登录同一账号并保持连接。
+2. 在 PC 上查到本机的 Tailscale IP（`tailscale ip`，形如 `100.x.x.x`）。
+3. 启动守护进程时指定该 IP，二维码里就会是它：
+   ```powershell
+   $env:VIBEBUDDY_HOST = "100.x.x.x"
+   .\vibebuddy-windows.exe
+   ```
+   或 `.\vibebuddy-windows.exe -advertise-host 100.x.x.x`。
+4. Windows 防火墙首次运行时会弹窗，点“允许”放行 9876 端口。
+5. iPhone 打开 Tailscale 连接后，再扫 `http://127.0.0.1:9876/pair` 的二维码配对。
+
 ## 已知限制
 
 - 手机 App 完全关掉后的远程推送需要苹果 APNs 证书——这是上游公开版同样没解决
