@@ -56,7 +56,13 @@ func (c *wsConn) writeJSON(v any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	_ = c.ws.SetWriteDeadline(time.Now().Add(wsWriteWait))
-	return c.ws.WriteJSON(v)
+	// json.Marshal (not Encoder): no trailing newline, byte-identical to the
+	// Mac daemon's Swift JSONEncoder output.
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return c.ws.WriteMessage(websocket.TextMessage, data)
 }
 
 // Broadcast sends an event to every connected phone. Slow or dead clients are
