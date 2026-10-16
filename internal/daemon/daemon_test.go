@@ -179,8 +179,16 @@ func TestAuthMiddleware(t *testing.T) {
 	if rec := doReq(h, "GET", "/snapshot", "Bearer "+d.token, ""); rec.Code != http.StatusOK {
 		t.Fatalf("bearer: want 200, got %d", rec.Code)
 	}
-	if rec := doReq(h, "GET", "/health", "", ""); rec.Code != http.StatusOK || rec.Body.String() != "ok" {
-		t.Fatalf("health: want 200 ok, got %d %q", rec.Code, rec.Body.String())
+	if rec := doReq(h, "GET", "/health", "", ""); rec.Code != http.StatusOK {
+		t.Fatalf("health: want 200, got %d", rec.Code)
+	} else {
+		var hresp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &hresp); err != nil {
+			t.Fatalf("health: want JSON, got %q", rec.Body.String())
+		}
+		if hresp["ok"] != true || hresp["version"] != Version {
+			t.Fatalf("health: want {ok:true version:%s}, got %v", Version, hresp)
+		}
 	}
 	// hook endpoints accept ?token=
 	req := httptest.NewRequest("POST", "/hook?agent=claude&token="+d.token, strings.NewReader(`{}`))
