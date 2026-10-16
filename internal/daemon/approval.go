@@ -39,6 +39,14 @@ func buildApprovalCard(payload map[string]any) *PendingApproval {
 	if desc := strField(payload, "description"); desc != "" && card.CommandPreview == "" {
 		card.CommandPreview = truncate(desc, 160)
 	}
+	// tool and commandPreview are required by the iPhone app's decoder;
+	// never leave them empty.
+	if card.Tool == "" {
+		card.Tool = "unknown"
+	}
+	if card.CommandPreview == "" {
+		card.CommandPreview = "Approval requested"
+	}
 	return card
 }
 
