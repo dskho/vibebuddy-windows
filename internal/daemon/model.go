@@ -16,7 +16,9 @@ type Snapshot struct {
 type AgentSession struct {
 	ID                  string           `json:"id"`
 	Agent               string           `json:"agent"`
-	Project             string           `json:"project,omitempty"`
+	// Project is required by the iPhone app (non-optional String): it must
+	// always be emitted, never omitted. Upsert defaults it to "Unknown".
+	Project             string           `json:"project"`
 	Cwd                 string           `json:"cwd,omitempty"`
 	Status              string           `json:"status"`
 	StatusSince         float64          `json:"statusSince"`
@@ -70,29 +72,32 @@ func sourceToAgent(source string) string {
 }
 
 // PendingApproval is an answerable permission request card.
+// PendingApproval: id, tool and commandPreview are required (non-optional)
+// by the iPhone app — they must always be emitted, never omitted.
 type PendingApproval struct {
 	ID                       string `json:"id"`
-	Tool                     string `json:"tool,omitempty"`
-	CommandPreview           string `json:"commandPreview,omitempty"`
+	Tool                     string `json:"tool"`
+	CommandPreview           string `json:"commandPreview"`
 	Command                  string `json:"command,omitempty"`
 	Answerable               bool   `json:"answerable"`
 	AllowsPersistentDecision bool   `json:"allowsPersistentDecision"`
 }
 
-// PendingQuestion is an answerable question card.
+// PendingQuestion: id, prompt and options are required (non-optional) by the
+// iPhone app — they must always be emitted, never omitted.
 type PendingQuestion struct {
 	ID         string           `json:"id"`
-	Prompt     string           `json:"prompt,omitempty"`
-	Options    []QuestionOption `json:"options,omitempty"`
+	Prompt     string           `json:"prompt"`
+	Options    []QuestionOption `json:"options"`
 	IsBlocking bool             `json:"isBlocking,omitempty"`
 	Answerable bool             `json:"answerable"`
 }
 
-// QuestionOption is one selectable answer.
+// QuestionOption: id, label and value are required by the iPhone app.
 type QuestionOption struct {
 	ID          string `json:"id"`
 	Label       string `json:"label"`
-	Value       string `json:"value,omitempty"`
+	Value       string `json:"value"`
 	Description string `json:"description,omitempty"`
 }
 
