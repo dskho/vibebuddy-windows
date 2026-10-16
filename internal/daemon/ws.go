@@ -13,6 +13,10 @@ var wsUpgrader = websocket.Upgrader{
 	// The phone app is a first-party client on the LAN; the bearer token is
 	// the auth mechanism, not the Origin header.
 	CheckOrigin: func(r *http.Request) bool { return true },
+	// iOS URLSessionWebSocketTask offers permessage-deflate via
+	// Sec-WebSocket-Extensions; without this gorilla rejects the handshake
+	// with 500 instead of upgrading.
+	EnableCompression: true,
 }
 
 const (
