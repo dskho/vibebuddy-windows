@@ -26,6 +26,15 @@ func (d *Daemon) Handler() http.Handler {
 	// Local dashboard (HTML carries no secrets).
 	mux.HandleFunc("/", d.serveIndex)
 	mux.HandleFunc("/pair", d.servePair)
+	mux.HandleFunc("/app", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := webFS.ReadFile("web/app.html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(b)
+	})
+	mux.HandleFunc("/app.webmanifest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/manifest+json")
+		_, _ = w.Write([]byte(`{"name":"VibeBuddy 手机版","short_name":"VibeBuddy","start_url":"/app","display":"standalone","background_color":"#1f6feb","theme_color":"#1f6feb"}`))
+	})
 	mux.HandleFunc("/wstest", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := webFS.ReadFile("web/wstest.html")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
