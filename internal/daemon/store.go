@@ -82,6 +82,7 @@ func (s *Store) Upsert(agent, extID, project, cwd string) *AgentSession {
 		sess = &AgentSession{
 			ID:          key,
 			Agent:       agent,
+			Project:     "Unknown",
 			Status:      StatusWorking,
 			StatusSince: now,
 			UpdatedAt:   now,
