@@ -13,13 +13,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"path/filepath"
 	"time"
 )
 
 // Version is the daemon version, exposed via /health and the startup log so
 // the phone's browser can confirm which build is running.
-const Version = "0.2.2"
+const Version = "0.2.3"
 
 // Config holds the daemon's runtime configuration.
 type Config struct {
@@ -119,9 +120,27 @@ func (d *Daemon) loadOrCreateSecret(name string, nbytes int) (string, error) {
 
 // detectLANIP returns the first non-loopback IPv4 address, "" if none.
 func detectLANIP() string {
+	cands := lanIPCandidates()
+	// Prefer RFC 1918 private addresses (real LAN); skip Tailscale CGNAT
+	// and link-local, which are not reachable from the phone's Wi-Fi.
+	for _, ip := range cands {
+		if isRFC1918(ip) {
+			return ip
+		}
+	}
+	if len(cands) > 0 {
+		return cands[0]
+	}
+	return ""
+}
+
+// lanIPCandidates lists all non-loopback IPv4 addresses on up interfaces,
+// skipping Tailscale's CGNAT range and link-local addresses.
+func lanIPCandidates() []string {
+	var out []string
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return ""
+		return nil
 	}
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
@@ -142,12 +161,36 @@ func detectLANIP() string {
 			if ip == nil || ip.IsLoopback() {
 				continue
 			}
-			if v4 := ip.To4(); v4 != nil {
-				return v4.String()
+			v4 := ip.To4()
+			if v4 == nil {
+				continue
 			}
+			s := v4.String()
+			if strings.HasPrefix(s, "100.") && isCGNAT(v4) {
+				continue // Tailscale / other CGNAT overlay
+			}
+			if v4.IsLinkLocalUnicast() {
+				continue
+			}
+			out = append(out, s)
 		}
 	}
-	return ""
+	return out
+}
+
+func isRFC1918(ip string) bool {
+	v4 := net.ParseIP(ip).To4()
+	if v4 == nil {
+		return false
+	}
+	return v4[0] == 10 ||
+		(v4[0] == 172 && v4[1] >= 16 && v4[1] <= 31) ||
+		(v4[0] == 192 && v4[1] == 168)
+}
+
+func isCGNAT(v4 net.IP) bool {
+	// 100.64.0.0/10
+	return v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127
 }
 
 // nowSeconds returns the current time as Unix seconds (float64), matching the
