@@ -26,6 +26,11 @@ func (d *Daemon) Handler() http.Handler {
 	// Local dashboard (HTML carries no secrets).
 	mux.HandleFunc("/", d.serveIndex)
 	mux.HandleFunc("/pair", d.servePair)
+	mux.HandleFunc("/wstest", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := webFS.ReadFile("web/wstest.html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(b)
+	})
 
 	// Secrets only ever leave the machine to loopback clients.
 	mux.HandleFunc("/qr.png", d.loopbackOnly(d.serveQR))
@@ -44,7 +49,7 @@ func (d *Daemon) Handler() http.Handler {
 	phoneAuth := d.bearerAuth
 	mux.Handle("/device", phoneAuth(http.HandlerFunc(d.serveDevice)))
 	mux.Handle("/snapshot", phoneAuth(http.HandlerFunc(d.serveSnapshot)))
-	mux.Handle("/ws", phoneAuth(http.HandlerFunc(d.serveWS)))
+	mux.Handle("/ws", d.flexAuth(http.HandlerFunc(d.serveWS)))
 	mux.Handle("/decision", phoneAuth(http.HandlerFunc(d.serveDecision)))
 	mux.Handle("/answer", phoneAuth(http.HandlerFunc(d.serveAnswer)))
 	mux.Handle("/acknowledge", phoneAuth(http.HandlerFunc(d.serveAcknowledge)))
