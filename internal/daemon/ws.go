@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -92,7 +93,10 @@ func (d *Daemon) serveWS(w http.ResponseWriter, r *http.Request) {
 
 	// First frame: the current full snapshot.
 	snap := d.store.Snapshot(d.sourceID)
+	frameBytes, _ := json.Marshal(ServerEvent{Snapshot: &snap})
+	log.Printf("ws: sending first snapshot frame (%d bytes) to %s", len(frameBytes), r.RemoteAddr)
 	if err := c.writeJSON(ServerEvent{Snapshot: &snap}); err != nil {
+		log.Printf("ws: first frame write failed: %v", err)
 		return
 	}
 
@@ -117,6 +121,7 @@ func (d *Daemon) serveWS(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		if _, _, err := ws.ReadMessage(); err != nil {
+			log.Printf("ws: connection from %s closed: %v", r.RemoteAddr, err)
 			return
 		}
 	}
