@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gorilla/websocket"
 )
 
 func testDaemon(t *testing.T) *Daemon {
@@ -207,6 +209,38 @@ func doReq(h http.Handler, method, path, auth, body string) *httptest.ResponseRe
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
+}
+
+// TestWSUpgradeThroughMiddleware guards against the v0.2.2 regression where
+// the logging middleware's ResponseWriter wrapper did not implement
+// http.Hijacker, so every /ws upgrade from the iPhone failed with 500 and
+// the app retried forever. The handshake goes through the full Handler()
+// (middleware included) with an iOS-style permessage-deflate offer.
+func TestWSUpgradeThroughMiddleware(t *testing.T) {
+	d := testDaemon(t)
+	srv := httptest.NewServer(d.Handler())
+	defer srv.Close()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws?quotaProviders=claudeCode"
+	hdr := http.Header{
+		"Authorization":            []string{"Bearer " + d.token},
+		"Sec-WebSocket-Extensions": []string{"permessage-deflate"},
+	}
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, hdr)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("upgrade: want 101, got %d", resp.StatusCode)
+	}
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read first frame: %v", err)
+	}
+	var evt ServerEvent
+	if err := json.Unmarshal(msg, &evt); err != nil || evt.Snapshot == nil {
+		t.Fatalf("first frame: want snapshot envelope, got %.120q (err %v)", msg, err)
+	}
 }
 
 func TestAnswerStopUnknown(t *testing.T) {
