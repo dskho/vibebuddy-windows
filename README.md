@@ -28,7 +28,8 @@ hooks/*.ps1 ──POST http://127.0.0.1:9876/hook?agent=<src>──▶ vibebuddy
 
 ## 快速开始
 
-1. **运行守护进程**：双击 `vibebuddy-windows.exe`。首次运行会在
+1. **运行守护进程**：从仓库 [Releases](https://github.com/dskho/vibebuddy-windows/releases)
+   下载 `vibebuddy-windows.exe`（每次打 tag 如 `v0.1.0` 会自动构建），双击运行。首次运行会在
    `%APPDATA%\vibebuddy\` 生成 bearer token。开机自启：按 `Win+R` 输入
    `shell:startup`，把 exe 的快捷方式放进去；或用任务计划程序
    （Task Scheduler）创建一个登录时触发的任务。
