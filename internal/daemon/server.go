@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -89,6 +90,8 @@ func (d *Daemon) Handler() http.Handler {
 }
 
 // statusRecorder captures the response status for logging.
+// It forwards Hijacker so WebSocket upgrades keep working through the
+// logging middleware.
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
@@ -97,6 +100,14 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := r.ResponseWriter.(http.Hijacker); ok {
+		r.status = http.StatusSwitchingProtocols
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("hijack not supported")
 }
 
 // loggingMiddleware logs every request (never secrets): method, path,
