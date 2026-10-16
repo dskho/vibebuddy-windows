@@ -1,0 +1,21 @@
+# Go build outputs
+*.exe
+*.dll
+/dist/
+
+# Go module cache artifacts
+/vendor/
+
+# Local dev
+.env
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp

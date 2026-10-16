@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vibebuddy-windows · 任务收件箱</title>
+<style>
+  body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #222; }
+  header { background: #1f6feb; color: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { color: #fff; text-decoration: none; border: 1px solid #fff; border-radius: 6px; padding: 4px 10px; font-size: 13px; }
+  main { max-width: 980px; margin: 16px auto; padding: 0 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .agent { display: inline-block; font-size: 12px; background: #eef2ff; color: #1f6feb; border-radius: 4px; padding: 2px 8px; margin-right: 8px; }
+  .status { font-size: 12px; border-radius: 4px; padding: 2px 8px; }
+  .st-needsResponse { background: #fff3cd; color: #8a6d00; }
+  .st-working { background: #d1f0d8; color: #1a7a2e; }
+  .st-done { background: #e8e8e8; color: #666; }
+  .proj { font-weight: 600; }
+  .meta { color: #777; font-size: 12px; margin-top: 6px; }
+  .preview { background: #f8f9fa; border-radius: 6px; padding: 8px 10px; margin: 8px 0; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+  .btns button { margin-right: 8px; padding: 6px 16px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-size: 14px; }
+  .allow { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+  .deny { background: #fff; color: #c0392b; border-color: #c0392b; }
+  .empty { text-align: center; color: #999; padding: 40px 0; }
+  #err { color: #c0392b; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐱 vibebuddy-windows · 任务收件箱</h1>
+  <a href="/pair">配对 iPhone</a>
+</header>
+<main>
+  <div id="err"></div>
+  <div id="list"></div>
+</main>
+<script>
+const list = document.getElementById('list');
+const err = document.getElementById('err');
+const agentName = { claudeCode: 'Claude Code', codex: 'Codex', grok: 'Grok', cursor: 'Cursor', copilot: 'Copilot', opencode: 'OpenCode', antigravity: 'Antigravity' };
+const statusName = { needsResponse: '等你处理', working: '运行中', done: '已完成' };
+
+async function decide(approvalId, decision) {
+  try {
+    await fetch('/api/local/decision', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvalId, decision, requestId: 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2) })
+    });
+    refresh();
+  } catch (e) { err.textContent = '发送失败: ' + e; }
+}
+
+function card(s) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  const ago = Math.max(0, Math.round(Date.now() / 1000 - s.updatedAt));
+  let html = `<div class="row"><div><span class="agent">${agentName[s.agent] || s.agent}</span>` +
+    `<span class="proj">${escapeHtml(s.project || s.id)}</span> ` +
+    `<span class="status st-${s.status}">${statusName[s.status] || s.status}</span></div>` +
+    `<span class="meta">${ago} 秒前更新</span></div>`;
+  if (s.summary) html += `<div class="meta">${escapeHtml(s.summary)}</div>`;
+  if (s.pendingApproval) {
+    const p = s.pendingApproval;
+    html += `<div class="preview">${escapeHtml(p.commandPreview || p.tool || '')}</div>` +
+      `<div class="btns"><button class="allow" data-id="${p.id}" data-d="allow">允许</button>` +
+      `<button class="allow" data-id="${p.id}" data-d="allowSession">本次会话都允许</button>` +
+      `<button class="deny" data-id="${p.id}" data-d="deny">拒绝</button></div>`;
+  }
+  div.innerHTML = html;
+  div.querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => decide(b.dataset.id, b.dataset.d)));
+  return div;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/local/snapshot');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const snap = await r.json();
+    err.textContent = '';
+    list.innerHTML = '';
+    const sessions = snap.sessions || [];
+    if (!sessions.length) {
+      list.innerHTML = '<div class="empty">暂无任务<br><small>在 Claude Code / Codex / Grok / Cursor 里跑个任务试试</small></div>';
+      return;
+    }
+    sessions.forEach(s => list.appendChild(card(s)));
+  } catch (e) { err.textContent = '连接守护进程失败: ' + e + '（请确认 vibebuddy-windows.exe 正在运行）'; }
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

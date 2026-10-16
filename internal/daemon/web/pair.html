@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vibebuddy-windows · 配对 iPhone</title>
+<style>
+  body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #222; }
+  header { background: #1f6feb; color: #fff; padding: 12px 20px; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 560px; margin: 24px auto; padding: 0 16px; text-align: center; }
+  .card { background: #fff; border-radius: 10px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  img.qr { width: 256px; height: 256px; }
+  ol { text-align: left; line-height: 1.9; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .back { display: inline-block; margin-top: 16px; color: #1f6feb; text-decoration: none; }
+</style>
+</head>
+<body>
+<header><h1>🐱 vibebuddy-windows · 配对 iPhone</h1></header>
+<main>
+  <div class="card">
+    <img class="qr" src="/qr.png" alt="配对二维码">
+    <ol>
+      <li>确认 iPhone 和这台电脑在<strong>同一个局域网</strong>（同一 Wi-Fi）。</li>
+      <li>iPhone 上打开 <strong>VibeBuddy: Agent Monitor</strong>，进「电脑连接设置」→「Scan to pair」，扫描上方二维码。</li>
+      <li>配对成功后，手表经 iPhone 自动中转，无需额外设置。</li>
+    </ol>
+    <p style="color:#888;font-size:13px">二维码长期有效；重装或手动重置 token 后需重新配对。<br>如需手动填写：host <code id="host"></code> · port <code id="port"></code></p>
+    <a class="back" href="/">← 返回任务收件箱</a>
+  </div>
+</main>
+<script>
+fetch('/api/local/pair-info').then(r => r.json()).then(d => {
+  document.getElementById('host').textContent = d.host;
+  document.getElementById('port').textContent = d.port;
+});
+</script>
+</body>
+</html>
