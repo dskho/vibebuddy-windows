@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VibeBuddy WS Test</title>
+<style>
+body { font-family: -apple-system, sans-serif; padding: 20px; max-width: 700px; margin: 0 auto; }
+#log { background: #111; color: #0f0; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; min-height: 200px; font-size: 13px; }
+button { padding: 10px 20px; font-size: 16px; margin: 8px 4px; }
+input { width: 100%; padding: 8px; font-size: 14px; margin: 8px 0; box-sizing: border-box; }
+.ok { color: #0f0; } .err { color: #f66; }
+</style>
+</head>
+<body>
+<h2>WebSocket 连接测试</h2>
+<p>在下面粘贴配对 token（二维码里的 token 字段），点"连接"测试浏览器能否收到快照帧。</p>
+<input id="token" placeholder="粘贴 token">
+<div>
+<button onclick="connect()">连接</button>
+<button onclick="document.getElementById('log').textContent=''">清空</button>
+</div>
+<div id="log"></div>
+<script>
+function log(msg, cls) {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  el.appendChild(line);
+}
+let ws = null;
+function connect() {
+  const token = document.getElementById('token').value.trim();
+  if (!token) { log('请先粘贴 token', 'err'); return; }
+  if (ws) ws.close();
+  // NOTE: browsers cannot set Authorization header on WS; use ?token= like hooks do
+  const url = 'ws://' + location.host + '/ws?token=' + encodeURIComponent(token);
+  log('正在连接 ' + url);
+  const t0 = Date.now();
+  try { ws = new WebSocket(url); } catch (e) { log('创建失败: ' + e, 'err'); return; }
+  ws.onopen = () => log('握手成功 (101)，等待首帧…', 'ok');
+  ws.onmessage = (ev) => {
+    const dt = Date.now() - t0;
+    log('收到首帧 (' + dt + 'ms, ' + ev.data.length + ' 字节)', 'ok');
+    try {
+      const obj = JSON.parse(ev.data);
+      const keys = Object.keys(obj);
+      log('顶层 keys: ' + keys.join(', '), keys.includes('snapshot') ? 'ok' : 'err');
+      if (obj.snapshot) {
+        log('snapshot.sessions: ' + JSON.stringify(obj.snapshot.sessions).slice(0, 80), 'ok');
+        log('snapshot.serverTime: ' + obj.snapshot.serverTime, 'ok');
+      }
+    } catch (e) { log('JSON 解析失败: ' + e, 'err'); }
+    ws.close();
+  };
+  ws.onerror = (e) => log('WebSocket 错误', 'err');
+  ws.onclose = (ev) => log('连接关闭 code=' + ev.code + ' reason=' + ev.reason);
+  setTimeout(() => {
+    if (ws && ws.readyState === 1) log('15 秒过去了还没收到帧（超时）', 'err');
+  }, 15000);
+}
+</script>
+</body>
+</html>
