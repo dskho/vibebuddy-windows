@@ -84,7 +84,36 @@ func (d *Daemon) Handler() http.Handler {
 		http.Error(w, "unavailable", http.StatusConflict)
 	})))
 
-	return mux
+	return d.loggingMiddleware(mux)
+}
+
+// statusRecorder captures the response status for logging.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+// loggingMiddleware logs every request (never secrets): method, path,
+// remote IP, response status, and whether a bearer <redacted> was present.
+func (d *Daemon) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		auth := "no-auth"
+		if r.Header.Get("Authorization") != "" {
+			auth = "auth"
+		}
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr
+		}
+		log.Printf("%s %s from %s -> %d (%s)", r.Method, r.URL.Path, host, rec.status, auth)
+	})
 }
 
 // --- auth ---
