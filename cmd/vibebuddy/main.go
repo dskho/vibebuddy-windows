@@ -29,7 +29,7 @@ func main() {
 		log.Fatalf("init: %v", err)
 	}
 
-	fmt.Printf("vibebuddy-windows daemon\n")
+	fmt.Printf("vibebuddy-windows daemon v%s\n", daemon.Version)
 	fmt.Printf("  dashboard : http://127.0.0.1:%d/\n", cfg.Port)
 	fmt.Printf("  pairing   : http://127.0.0.1:%d/pair\n", cfg.Port)
 	fmt.Printf("  support   : %s\n", cfg.SupportDir)
