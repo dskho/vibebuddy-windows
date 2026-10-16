@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f6feb">
+<link rel="manifest" href="/app.webmanifest">
+<title>VibeBuddy 手机版</title>
+<style>
+:root { --bg: #f2f3f5; --card: #fff; --ink: #1c1e21; --ink2: #65676b; --blue: #1f6feb; --green: #1a7a2e; --red: #c0392b; --amber: #8a6d00; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; background: var(--bg); color: var(--ink); padding-bottom: env(safe-area-inset-bottom); }
+header { background: var(--blue); color: #fff; padding: 14px 16px calc(10px + env(safe-area-inset-top)); padding-top: calc(14px + env(safe-area-inset-top)); position: sticky; top: 0; z-index: 10; }
+header h1 { font-size: 17px; margin: 0; display: flex; justify-content: space-between; align-items: center; }
+#conn { font-size: 12px; opacity: .9; }
+main { padding: 12px; max-width: 640px; margin: 0 auto; }
+.card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.agent { font-size: 12px; background: #eef2ff; color: var(--blue); border-radius: 6px; padding: 3px 8px; font-weight: 600; }
+.proj { font-weight: 700; font-size: 15px; flex: 1; }
+.badge { font-size: 12px; border-radius: 20px; padding: 3px 10px; font-weight: 600; }
+.b-needsResponse { background: #fff3cd; color: var(--amber); }
+.b-working { background: #d1f0d8; color: var(--green); }
+.b-done { background: #e8e8e8; color: #666; }
+.b-idle { background: #e8e8e8; color: #666; }
+.meta { color: var(--ink2); font-size: 12px; margin-top: 6px; }
+.summary { font-size: 13px; color: var(--ink2); margin-top: 6px; line-height: 1.5; }
+.approval { border: 1px solid #f0c36d; background: #fffdf5; border-radius: 10px; padding: 12px; margin-top: 10px; }
+.approval .tool { font-size: 13px; font-weight: 700; color: var(--amber); }
+.approval pre { background: #f8f9fa; border-radius: 8px; padding: 10px; font-size: 13px; white-space: pre-wrap; word-break: break-all; margin: 8px 0; font-family: ui-monospace, monospace; max-height: 160px; overflow: auto; }
+.btnrow { display: flex; gap: 8px; margin-top: 8px; }
+.btnrow button { flex: 1; padding: 12px 0; border-radius: 10px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; }
+.allow { background: var(--blue); color: #fff; }
+.allowAll { background: #e8f0fe; color: var(--blue); }
+.deny { background: #fdecea; color: var(--red); }
+.question { border: 1px solid #b6d7ff; background: #f5f9ff; border-radius: 10px; padding: 12px; margin-top: 10px; }
+.question .q { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.question button { display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #cfe0ff; background: #fff; font-size: 14px; }
+.empty { text-align: center; color: #999; padding: 60px 20px; }
+.empty .big { font-size: 44px; margin-bottom: 12px; }
+#err { color: var(--red); font-size: 13px; text-align: center; padding: 8px; }
+#login { padding: 40px 24px; text-align: center; }
+#login input { width: 100%; padding: 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ccc; margin: 12px 0; font-family: ui-monospace, monospace; }
+#login button { width: 100%; padding: 14px; background: var(--blue); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; }
+.hint { font-size: 12px; color: var(--ink2); margin-top: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header><h1>🐱 VibeBuddy <span id="conn">● 连接中…</span></h1></header>
+<div id="err"></div>
+<div id="login" style="display:none">
+  <h3>输入配对 Token</h3>
+  <p class="hint">在 PC 浏览器打开 <b>http://127.0.0.1:9876/pair</b> 扫码，或从<br>
+  <b>%APPDATA%\vibebuddy\token</b> 文件复制。</p>
+  <input id="tokenInput" placeholder="粘贴 token" autocomplete="off">
+  <button onclick="saveToken()">连接</button>
+</div>
+<main id="main" style="display:none"><div id="list"></div></main>
+<script>
+const $ = id => document.getElementById(id);
+const agentName = { claudeCode: 'Claude Code', codex: 'Codex', grok: 'Grok', cursor: 'Cursor', copilot: 'Copilot', opencode: 'OpenCode', antigravity: 'Antigravity' };
+const statusName = { needsResponse: '等你处理', working: '运行中', done: '已完成', idle: '空闲' };
+let token = localStorage.getItem('vb_token') || new URLSearchParams(location.search).get('token') || '';
+let ws = null, snapTimer = null;
+
+function api(path, opts = {}) {
+  opts.headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opts.headers || {});
+  return fetch(path, opts);
+}
+function showLogin() { $('login').style.display = ''; $('main').style.display = 'none'; }
+function showMain() { $('login').style.display = 'none'; $('main').style.display = ''; }
+function saveToken() {
+  token = $('tokenInput').value.trim();
+  if (!token) return;
+  localStorage.setItem('vb_token', token);
+  showMain(); connect();
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function ago(ts) {
+  const s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  if (s < 60) return s + ' 秒前';
+  if (s < 3600) return Math.round(s / 60) + ' 分钟前';
+  return Math.round(s / 3600) + ' 小时前';
+}
+
+async function decide(approvalId, decision) {
+  try {
+    const r = await api('/decision', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvalId, decision, requestId: 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2) }) });
+    if (r.status === 401) { localStorage.removeItem('vb_token'); showLogin(); return; }
+  } catch (e) { $('err').textContent = '发送失败: ' + e; }
+}
+async function answer(sessionId, questionId, value) {
+  try {
+    const r = await api('/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, intent: 'answer', questionId, answers: { [questionId]: [value] }, requestId: 'web-' + Date.now() }) });
+    if (r.status === 401) { localStorage.removeItem('vb_token'); showLogin(); return; }
+  } catch (e) { $('err').textContent = '发送失败: ' + e; }
+}
+async function stopSession(sessionId, statusSince) {
+  if (!confirm('确定停止这个会话吗？')) return;
+  try {
+    await api('/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, intent: 'stop', expectedStatusSince: statusSince, requestId: 'web-' + Date.now() }) });
+  } catch (e) { $('err').textContent = '发送失败: ' + e; }
+}
+
+function card(s) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  let h = `<div class="top"><span class="agent">${esc(agentName[s.agent] || s.agent)}</span>` +
+    `<span class="proj">${esc(s.project || s.id.slice(0, 8))}</span>` +
+    `<span class="badge b-${s.status}">${esc(statusName[s.status] || s.status)}</span></div>` +
+    `<div class="meta">${ago(s.updatedAt)}更新 · ${esc(s.id.slice(0, 8))}</div>`;
+  if (s.summary) h += `<div class="summary">${esc(s.summary)}</div>`;
+  if (s.pendingApproval) {
+    const p = s.pendingApproval;
+    h += `<div class="approval"><div class="tool">⚠️ 需要审批 · ${esc(p.tool || '')}</div>` +
+      `<pre>${esc(p.commandPreview || '')}</pre>` +
+      `<div class="btnrow"><button class="allow" data-a="${p.id}" data-d="allow">允许</button>` +
+      `<button class="allowAll" data-a="${p.id}" data-d="allowSession">本次都允许</button>` +
+      `<button class="deny" data-a="${p.id}" data-d="deny">拒绝</button></div></div>`;
+  }
+  if (s.pendingQuestion) {
+    const q = s.pendingQuestion;
+    h += `<div class="question"><div class="q">❓ ${esc(q.prompt || '')}</div>`;
+    (q.options || []).forEach(o => {
+      h += `<button data-q="${q.id}" data-s="${s.id}" data-v="${esc(o.value || o.label)}">${esc(o.label || o.value)}</button>`;
+    });
+    h += `</div>`;
+  }
+  if (s.status === 'working') {
+    h += `<div class="btnrow"><button class="deny" data-stop="${s.id}" data-since="${s.statusSince}">停止</button></div>`;
+  }
+  div.innerHTML = h;
+  div.querySelectorAll('[data-a]').forEach(b => b.onclick = () => decide(b.dataset.a, b.dataset.d));
+  div.querySelectorAll('[data-q]').forEach(b => b.onclick = () => answer(b.dataset.s, b.dataset.q, b.dataset.v));
+  div.querySelectorAll('[data-stop]').forEach(b => b.onclick = () => stopSession(b.dataset.stop, parseFloat(b.dataset.since)));
+  return div;
+}
+
+function render(snap) {
+  const list = $('list');
+  list.innerHTML = '';
+  const sessions = (snap && snap.sessions) || [];
+  $('conn').textContent = '● 已连接';
+  $('conn').style.color = '#8f8';
+  if (!sessions.length) {
+    list.innerHTML = '<div class="empty"><div class="big">📭</div>暂无任务<br><small>在 Claude Code / Codex / Grok / Cursor 里跑个任务试试</small></div>';
+    return;
+  }
+  const order = { needsResponse: 0, working: 1, idle: 2, done: 3 };
+  sessions.sort((a, b) => (order[a.status] || 9) - (order[b.status] || 9));
+  sessions.forEach(s => list.appendChild(card(s)));
+}
+
+async function pollOnce() {
+  try {
+    const r = await api('/snapshot');
+    if (r.status === 401) { localStorage.removeItem('vb_token'); showLogin(); disconnect(); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    $('err').textContent = '';
+    render(await r.json());
+  } catch (e) { $('err').textContent = '连接失败: ' + e.message; $('conn').textContent = '● 断开'; $('conn').style.color = '#f88'; }
+}
+
+function connect() {
+  disconnect();
+  // Try WebSocket for live updates, fall back to polling
+  try {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(proto + '//' + location.host + '/ws?token=' + encodeURIComponent(token));
+    ws.onmessage = ev => { try { const o = JSON.parse(ev.data); if (o.snapshot) render(o.snapshot); } catch (e) {} };
+    ws.onclose = () => { ws = null; };
+    ws.onerror = () => { try { ws.close(); } catch (e) {} };
+  } catch (e) {}
+  pollOnce();
+  snapTimer = setInterval(pollOnce, 5000);
+}
+function disconnect() {
+  if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+  if (snapTimer) { clearInterval(snapTimer); snapTimer = null; }
+}
+
+if (!token) showLogin(); else { showMain(); connect(); }
+</script>
+</body>
+</html>
