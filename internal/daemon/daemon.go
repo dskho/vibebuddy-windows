@@ -19,7 +19,7 @@ import (
 
 // Version is the daemon version, exposed via /health and the startup log so
 // the phone's browser can confirm which build is running.
-const Version = "0.2.1"
+const Version = "0.2.2"
 
 // Config holds the daemon's runtime configuration.
 type Config struct {
