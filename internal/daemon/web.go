@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-//go:embed web/index.html web/pair.html
+//go:embed web/index.html web/pair.html web/wstest.html
 var webFS embed.FS
 
 func (d *Daemon) serveIndex(w http.ResponseWriter, r *http.Request) {
