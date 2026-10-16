@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -347,6 +348,11 @@ func (d *Daemon) Serve(ctx context.Context) error {
 		_ = srv.Shutdown(shutCtx)
 	}()
 	log.Printf("vibebuddy-windows v%s listening on :%d (support dir %s, LAN %s)", Version, d.cfg.Port, d.cfg.SupportDir, d.lanIP)
+	if d.cfg.AdvertiseHost == "" {
+		if cands := lanIPCandidates(); len(cands) > 1 {
+			log.Printf("other local IPs: %s", strings.Join(cands[1:], ", "))
+		}
+	}
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
